@@ -194,6 +194,18 @@ def create_theta_stack(filenames, output_filename):
 	shapes = set(shapes)
 
 	print 'Found {:d} different array shapes: '.format(len(shapes)), shapes
+	# Find the max array size
+	
+	if len(shapes)>1:
+		xmin, ymin = 0,0
+		for shape in shapes:
+			if shape[0]>xmin:
+				xmin=shape[0]
+			if shape[1]>ymin:
+				ymin=shape[1]
+	else:
+		xmin, ymin = shapes
+	array_shape = [len(filenames), xmin, ymin]
 
 	# Stackable datasets
 	# I will create a theta stack for every dataset which has a root entry called 'exchange' and 'exchange_N'
@@ -202,7 +214,13 @@ def create_theta_stack(filenames, output_filename):
 
 	print 'Found {:d} stackable datasets: '.format(len(stackable_datasets)), stackable_datasets
 
-	for i, filename in enumerate(filenames):
+	for dataset in stackable_datasets:
+
+		data = sp.array(array_shape)
+		for i, filename in enumerate(filenames):
+			f_dex = DataExchangeFile(filename, mode='r')
+
+
 
 
 	
