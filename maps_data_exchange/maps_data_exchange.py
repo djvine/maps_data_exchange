@@ -190,7 +190,20 @@ def create_theta_stack(filenames, output_filename):
 		f_dex = DataExchangeFile(filename, mode='r')
 		angles[f_dex['/exchange/angle'].value] = (filename, f_dex['/exchange/data'].shape)
 		shapes.append(f_dex['/exchange/data'].shape)
+		f_dex.close()
 	shapes = set(shapes)
+
+	print 'Found {:d} different array shapes: '.format(len(shapes)), shapes
+
+	# Stackable datasets
+	# I will create a theta stack for every dataset which has a root entry called 'exchange' and 'exchange_N'
+	with DataExchangeFile(filenames[0], mode='r') as f_dex:
+		stackable_datasets = [dataset for dataset in f_dex.keys() if dataset.find('exchange')>-1]
+
+	print 'Found {:d} stackable datasets: '.format(len(stackable_datasets)), stackable_datasets
+
+	for i, filename in enumerate(filenames):
+
 
 	
 
@@ -217,9 +230,18 @@ def main():
     if args.d:
 		filenames = [filename for filename in glob.glob(args.d+'/*.h5') if filename.find('SDE')<0]
 		print 'Found {:d} files.'.format(len(filenames))
+		f_errors = []
 		for filename in filenames:
 			print 'Converting {:s}'.format(filename)
-			convert_to_SDE(filename)
+			try:
+				convert_to_SDE(filename)
+			except KeyError as detail:
+				'\tFAILED: {:s}'.format(detail)
+				f_errors.append(filename)
+		if len(f_errors)>0:
+			print 'Failed converting {:d} files.'.format(len(f_errors))
+			for f_error in f_errors:
+				print '\t{:s}'.format(f_error)
     elif args.f:
     	convert_to_SDE(args.f)
     elif args.t:
@@ -228,5 +250,6 @@ def main():
     		return
     	filenames = glob.glob(args.t[0].rstrip('/')+'/*_SDE.h5')
     	create_theta_stack(filenames, args.t[1])
+
 
 if __name__=='__main__': main()
