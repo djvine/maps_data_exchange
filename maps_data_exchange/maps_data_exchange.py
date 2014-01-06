@@ -13,8 +13,9 @@ from data_exchange import DataExchangeFile, DataExchangeEntry
 import h5py
 import argparse
 import glob
-import ipdb
+import ipdb, pdb
 import shutil
+import scipy as sp
 
 """
 This mapping is used to automate the creation of SDE files from MAPS files.
@@ -181,32 +182,9 @@ def convert_to_SDE(filename):
 
 def create_theta_stack(filenames, output_filename):
 
-	f_tomo = DataExchangeFile(output_filename, mode='w')
-	ipdb.set_trace()
-	# loop through all files to determine the image sizes that will be stacked.
-	angles = {}
-	shapes = []
-	for filename in filenames:
-		f_dex = DataExchangeFile(filename, mode='r')
-		angles[f_dex['/exchange/angle'].value] = (filename, f_dex['/exchange/data'].shape)
-		shapes.append(f_dex['/exchange/data'].shape)
-		f_dex.close()
-	shapes = set(shapes)
-
-	print 'Found {:d} different array shapes: '.format(len(shapes)), shapes
-	# Find the max array size
+	shutil.copy(filenames[0], output_filename)
+	f_tomo = DataExchangeFile(output_filename, mode='a')
 	
-	if len(shapes)>1:
-		xmin, ymin = 0,0
-		for shape in shapes:
-			if shape[0]>xmin:
-				xmin=shape[0]
-			if shape[1]>ymin:
-				ymin=shape[1]
-	else:
-		xmin, ymin = shapes
-	array_shape = [len(filenames), xmin, ymin]
-
 	# Stackable datasets
 	# I will create a theta stack for every dataset which has a root entry called 'exchange' and 'exchange_N'
 	with DataExchangeFile(filenames[0], mode='r') as f_dex:
@@ -215,19 +193,82 @@ def create_theta_stack(filenames, output_filename):
 	print 'Found {:d} stackable datasets: '.format(len(stackable_datasets)), stackable_datasets
 
 	for dataset in stackable_datasets:
-
-		data = sp.array(array_shape)
-		for i, filename in enumerate(filenames):
+		print 'Adding {:s}'.format(dataset)
+		# loop through all files to determine the image sizes that will be stacked.
+		angles = {}
+		shapes = []
+		for filename in filenames:
 			f_dex = DataExchangeFile(filename, mode='r')
+			angles[f_dex['/exchange/angle'].value] = (filename, f_dex['/'.join([dataset, 'data'])].shape)
+			shapes.append(f_dex['/'.join([dataset, 'data'])].shape)
+			f_dex.close()
+		shapes = list(set(shapes))
 
+		print 'Found {:d} different array shapes: '.format(len(shapes)), shapes[0]
+		# Find the max array size
+		if len(shapes)>1:
+			xmin, ymin = 0,0
+			for dim in shapes[0]:
+				if dim[1]>xmin:
+					xmin=dim[1]
+				if dim[2]>ymin:
+					ymin=dim[2]
+		else:
+			channels, xmin, ymin = shapes[0]
+		array_shape = [len(filenames), channels, xmin, ymin]
 
+		
+		
 
+		# Need to add the DataExchange entry in non-standard way because arrays are so large they can't
+		# be held in memory simultaneously. So I create a dataset with a single array and the resize
+		# it to the right shape. Then arrays can be added individually.
 
 	
+		try:
+			del f_tomo[dataset+'/data']
+		except KeyError:
+			pass
+		if dataset == 'exchange':
+			try:
+				del f_tomo[dataset+'/angle']
+			except KeyError:
+				pass
 
+		for i_theta, angle in enumerate(sorted(angles.keys(), key=float)):
+			print 'Adding angle {:s}'.format(angle)
+			with DataExchangeFile(angles[angle][0], mode='r') as f_dex:
+				
+				if i_theta==0:
+					ashape = list(f_dex[dataset+'/data'].shape)
+					ashape.insert(0,1)
+					entry = DataExchangeEntry.data(
+					root='/'+dataset,
+					data={
+						'value': sp.zeros(ashape), 
+						'units': f_dex['/'.join([dataset, 'data'])].attrs['units'], 
+						'description': f_dex['/'.join([dataset, 'data'])].attrs['description'],
+						'axes': 'angle:'+f_dex['/'.join([dataset, 'data'])].attrs['axes'],
+			            'dataset_opts':  {
+				            	'compression': 'gzip', 
+				            	'compression_opts': 4,
+				            	'maxshape': (None, None, None, None)
+				            	} 
+				            },
+				    angles={
+				    	'value': sorted(angles.keys(), key=float),
+				     	'units': 'degrees',
+				     	'description': 'Angles at which each projection was acquired.'
+				    	}
+					)
 
+					
+					f_tomo.add_entry(entry)
+					f_tomo['/'.join([dataset, 'data'])].resize(tuple(array_shape))
 
+				f_tomo['/'.join([dataset, 'data'])][i_theta,:,:,:] = f_dex[dataset+'/data'].value
 
+	f_tomo.close()
 
 def main():
     """Define the command line options.
