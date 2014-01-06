@@ -16,6 +16,7 @@ import glob
 import ipdb, pdb
 import shutil
 import scipy as sp
+import Tkinter, tkFileDialog
 
 """
 This mapping is used to automate the creation of SDE files from MAPS files.
@@ -283,7 +284,7 @@ def main():
     parser.add_argument('-d', '--convert-directory', help="Convert a directory of MAPS HDF5 to Scientific Data Exchange format", dest='d', action='store')
     parser.add_argument('-t', '--create-theta-stack', nargs=2, help="Convert a stack of Scientific Data Exchange \
     	 files to a single (theta stack) file.\nUsage:\n\t./maps_data_exchange -t input_dir output_filename", dest='t', action='store')
-
+    parser.add_argument('-o', '--open-dialog', help='Open a file dialog to specify which files to convert.', dest='o', action='store_true')
     args = parser.parse_args()
 
     if args.d:
@@ -309,6 +310,24 @@ def main():
     		return
     	filenames = glob.glob(args.t[0].rstrip('/')+'/*_SDE.h5')
     	create_theta_stack(filenames, args.t[1])
+    elif args.o:
+    	root = Tkinter.Tk()
+    	root.withdraw()
+    	filenames = tkFileDialog.askopenfilenames(defaultextension='h5', multiple=True, title='Select MAPS HDF5 files to convert to Scientific Data Exchange format.')
+        if len(filenames)==0:
+            return
+        filenames = [filename for filename in filenames if filename.find('SDE')<0]
 
+    	for filename in filenames:
+    		print 'Converting {:s}'.format(filename)
+    		try:
+    			convert_to_SDE(filename)
+    		except KeyError as detail:
+    			'\tFAILED: {:s}'.format(detail)
+    			f_errors.append(filename)
+    	if len(f_errors)>0:
+    		print 'Failed converting {:d} files.'.format(len(f_errors))
+    		for f_error in f_errors:
+    			print '\t{:s}'.format(f_error) 
 
 if __name__=='__main__': main()
