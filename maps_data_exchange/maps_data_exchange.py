@@ -40,17 +40,17 @@ class h5att(object):
 
 MAPS_to_SDE_mapping = { 
 	# Raw Data
-	'exchange': {
+	'exchange_0': {
 				'data': {
-						'title': ('exchange', 'Raw fluorescence spectra'),
-						'data':	('exchange', h5val('/MAPS/mca_arr'), 'counts', h5att('/MAPS/mca_arr','comments'),	'energy:y:x',{'compression': 'gzip', 'compression_opts': 4}),
-						'x_axis': ('exchange', h5val('/exchange/x_axis'), 'mm', h5att('/exchange/x_axis','comments')),
-						'y_axis': ('exchange', h5val('/exchange/y_axis'), 'mm', h5att('/exchange/y_axis','comments')),
-						'energy': ('exchange', h5val('/MAPS/energy'), 'keV', h5att('/MAPS/energy', 'comments')),
-						'scalers': ('exchange', h5val('/MAPS/scalers'), h5val('/MAPS/scaler_units'), h5att('/MAPS/scalers', 'comments'), 'scaler:y:x'),
-						'scaler_names': ('exchange', h5val('/MAPS/scaler_names'), 'units', h5att('/MAPS/scaler_names', 'comments')),
-						'fit_parameters': ('exchange', h5val('/MAPS/energy_calib'), None, h5att('/MAPS/energy_calib', 'comments')),
-						'angle': ('exchange', h5val('/MAPS/extra_pvs', (1, 98)), 'degrees')
+						'title': ('exchange_0', 'Raw fluorescence spectra'),
+						'data':	('exchange_0', h5val('/MAPS/mca_arr'), 'counts', h5att('/MAPS/mca_arr','comments'),	'energy:y:x',{'compression': 'gzip', 'compression_opts': 4}),
+						'x_axis': ('exchange_0', h5val('/exchange/x_axis'), 'mm', h5att('/exchange/x_axis','comments')),
+						'y_axis': ('exchange_0', h5val('/exchange/y_axis'), 'mm', h5att('/exchange/y_axis','comments')),
+						'energy': ('exchange_0', h5val('/MAPS/energy'), 'keV', h5att('/MAPS/energy', 'comments')),
+						'scalers': ('exchange_0', h5val('/MAPS/scalers'), h5val('/MAPS/scaler_units'), h5att('/MAPS/scalers', 'comments'), 'scaler:y:x'),
+						'scaler_names': ('exchange_0', h5val('/MAPS/scaler_names'), 'units', h5att('/MAPS/scaler_names', 'comments')),
+						'fit_parameters': ('exchange_0', h5val('/MAPS/energy_calib'), None, h5att('/MAPS/energy_calib', 'comments')),
+						'angle': ('exchange_0', h5val('/MAPS/extra_pvs', (1, 98)), 'degrees')
 				},
 	},		
 	# Analysed Data
@@ -99,8 +99,10 @@ MAPS_to_SDE_mapping = {
 				},
 	},
 	'instrument': {
+                'instrument': {
+                        'name': (None, 'XSD/2-ID-E'),
+                },
 				'amplifier': {
-					'name': (None, 'XSD/2-ID-E'),
 					'ds_amplifier': (None, h5val('/MAPS/ds_amp'), None, h5att('/MAPS/ds_amp', 'comments')),
 					'us_amplifier': (None, h5val('/MAPS/us_amp'), None, h5att('/MAPS/us_amp', 'comments'))
 				}
@@ -124,7 +126,7 @@ def convert_to_SDE(filename):
 	
 	f_maps = h5py.File(filename, mode='r')
 
-	f_dex = DataExchangeFile(filename.split('.')[0]+'_SDE.h5', mode='w')
+	f_dex = DataExchangeFile('/'.join(filename.split('/')[:-1])+'/'+filename.split('/')[-1].split('.')[0]+'_SDE.h5', mode='w')
 
 	for group in MAPS_to_SDE_mapping.keys():
 
@@ -189,7 +191,7 @@ def create_theta_stack(filenames, output_filename):
 	# Stackable datasets
 	# I will create a theta stack for every dataset which has a root entry called 'exchange' and 'exchange_N'
 	with DataExchangeFile(filenames[0], mode='r') as f_dex:
-		stackable_datasets = [dataset for dataset in f_dex.keys() if dataset.find('exchange')>-1]
+		stackable_datasets = [dataset for dataset in f_dex.keys() if dataset.find('exchange_')>-1]
 
 	print 'Found {:d} stackable datasets: '.format(len(stackable_datasets)), stackable_datasets
 
@@ -200,7 +202,7 @@ def create_theta_stack(filenames, output_filename):
 		shapes = []
 		for filename in filenames:
 			f_dex = DataExchangeFile(filename, mode='r')
-			angles[f_dex['/exchange/angle'].value] = (filename, f_dex['/'.join([dataset, 'data'])].shape)
+			angles[f_dex['/exchange_0/angle'].value] = (filename, f_dex['/'.join([dataset, 'data'])].shape)
 			shapes.append(f_dex['/'.join([dataset, 'data'])].shape)
 			f_dex.close()
 		shapes = list(set(shapes))
@@ -230,7 +232,7 @@ def create_theta_stack(filenames, output_filename):
 			del f_tomo[dataset+'/data']
 		except KeyError:
 			pass
-		if dataset == 'exchange':
+		if dataset == 'exchange_0':
 			try:
 				del f_tomo[dataset+'/angle']
 			except KeyError:
