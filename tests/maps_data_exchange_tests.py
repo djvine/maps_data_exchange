@@ -1,5 +1,5 @@
 from nose.tools import *
-import NAME
+import maps_data_exchange
 
 def setup():
     print "SETUP!"
